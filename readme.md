@@ -18,29 +18,29 @@ i.e. `./bin/release/atomicIncTest 4 16 65536 0 0`
 To build using cmake it is recommended to use out of source building. i.e. 
 
 
-    mkdir build 
-    cd build
+    mkdir build/release 
+    cd build/release
     cmake ..
     make
 
-To create a debug build, use -D
+To create a debug build, use:
 
-    mkdir debug 
-    cd debug
+    mkdir build/debug 
+    cd build/debug
     cmake .. -DCMAKE_BUILD_TYPE=Debug
     make
 
-To create a profile build, use -D
+To create a profile build use:
 
-    mkdir profile 
-    cd profile
+    mkdir build/profile 
+    cd build/profile
     cmake .. -DCMAKE_BUILD_TYPE=Profile
     make
 
 To target specific CUDA architectures, specify a semicolon separated list: ie.
 
-    mkdir build 
-    cd build
+    mkdir build/release 
+    cd build/release
     cmake .. -DSMS="52;60"
     make
 
