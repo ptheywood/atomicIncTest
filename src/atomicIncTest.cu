@@ -73,18 +73,18 @@ __global__ void atomicInc_kernel(
 	unsigned int tid = threadIdx.x + (blockDim.x * blockIdx.x);
 
 	if (tid < numInputs){
-		if(tid == 0){
-			printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
-		}
+		// if(tid == 0){
+		// 	printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
+		// }
 		for (int iteration = 0; iteration < numIterations; iteration++){
 			// If a value is less than the probabiltiy, apply the min.
 
 			unsigned int old = atomicInc(d_quantity + tid, MAX);
 
 			// If old is MAX, could not increment.
-			if(tid == 0){
-				printf("tid %u: iter %d, old %u\n", tid, iteration, old );
-			}
+			// if(tid == 0){
+			// 	printf("tid %u: iter %d, old %u\n", tid, iteration, old );
+			// }
 			if(old < MAX){
 				d_count[tid]++;
 			}
@@ -102,16 +102,17 @@ __global__ void atomicDec_kernel(
 	unsigned int tid = threadIdx.x + (blockDim.x * blockIdx.x);
 
 	if (tid < numInputs){
-		if(tid == 0){
-			printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
-		}		
+		// if(tid == 0){
+		// 	printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
+		// }		
 		for (int iteration = 0; iteration < numIterations; iteration++){
 
+			// Passing 0 as the second argument does not prevent wrapping, instead if the value of *addr is greater than val, *addr is set to val (i.e 0) so only a single dec occurs.
 			unsigned int old = atomicDec(d_quantity + tid, MAX);
 
-			if(tid == 0){
-				printf("tid %u: iter %d, old %u\n", tid, iteration, old );
-			}
+			// if(tid == 0){
+			// 	printf("tid %u: iter %d, old %u\n", tid, iteration, old );
+			// }
 
 			// If old is not the maximum value, we have claimed a resource?
 			if(old > 0){
@@ -171,18 +172,18 @@ __global__ void atomicIncNoWrap_kernel(
 	unsigned int tid = threadIdx.x + (blockDim.x * blockIdx.x);
 
 	if (tid < numInputs){
-		if(tid == 0){
-			printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
-		}
+		// if(tid == 0){
+		// 	printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
+		// }
 		for (int iteration = 0; iteration < numIterations; iteration++){
 			// If a value is less than the probabiltiy, apply the min.
 
 			unsigned int old = atomicIncNoWrap(d_quantity + tid, MAX);
 
 			// If old is MAX, could not increment.
-			if(tid == 0){
-				printf("tid %u: iter %d, old %u\n", tid, iteration, old );
-			}
+			// if(tid == 0){
+			// 	printf("tid %u: iter %d, old %u\n", tid, iteration, old );
+			// }
 			if(old < MAX){
 				d_count[tid]++;
 			}
@@ -199,16 +200,16 @@ __global__ void atomicDecNoWrap_kernel(
 	unsigned int tid = threadIdx.x + (blockDim.x * blockIdx.x);
 
 	if (tid < numInputs){
-		if(tid == 0){
-			printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
-		}		
+		// if(tid == 0){
+		// 	printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
+		// }		
 		for (int iteration = 0; iteration < numIterations; iteration++){
 
 			unsigned int old = atomicDecNoWrap(d_quantity + tid, MAX);
 
-			if(tid == 0){
-				printf("tid %u: iter %d, old %u\n", tid, iteration, old );
-			}
+			// if(tid == 0){
+			// 	printf("tid %u: iter %d, old %u\n", tid, iteration, old );
+			// }
 
 			// If old is not the maximum value, we have claimed a resource?
 			if(old > 0){
@@ -254,14 +255,15 @@ void checkUsage(
 		// If an incorrect number of arguments is specified, or -h is any arguement print usage.
 		if (argc < MIN_ARGS || argc > MAX_ARGS || helpFlag ){
 			const char *usage = "Usage: \n"
-				"%s <num_iterations> <num_elements> <seed> <device>\n"
+				"%s <num_repeats> <num_iterations> <num_elements> <seed> <device>\n"
 				"\n"
-				"    <num_iterations> number of iterations to repeat (default %u)\n"
+				"    <num_repeats>    number of repetitions (default %u)\n"
+				"    <num_iterations> number of iterations to run (default %u)\n"
 				"    <num_elements>   number of threads to launch (default %u)\n"
 				"    <seed>           seed for RNG (default %llu)\n"
 				"    <device>         CUDA Device index (default %d)\n"
 				"\n";
-			fprintf(stdout, usage, argv[ARG_EXECUTABLE], DEFAULT_NUM_ITERATIONS, DEFAULT_NUM_ELEMENTS, DEFAULT_SEED, DEFAULT_DEVICE);
+			fprintf(stdout, usage, argv[ARG_EXECUTABLE], DEFAULT_NUM_REPEATS, DEFAULT_NUM_ITERATIONS, DEFAULT_NUM_ELEMENTS, DEFAULT_SEED, DEFAULT_DEVICE);
 			fflush(stdout);
 			exit(EXIT_FAILURE);
 		}
@@ -371,6 +373,8 @@ void test(
 	int blockSize = 0;
 	int minGridSize = 0;
 	int gridSize = 0;
+	unsigned int total_count = 0;
+	unsigned int total_quantity = 0;
 	for (unsigned int repeat = 0; repeat < numRepeats; repeat++){
 		// Reset counts
 		CUDA_CALL(cudaMemset(d_count, 0, numElements * sizeof(unsigned int)));
@@ -426,10 +430,15 @@ void test(
 		CUDA_CALL(cudaMemcpy(h_quantity, d_quantity, numElements * sizeof(unsigned int), cudaMemcpyDeviceToHost));
 
 		// Calculate some stats based on counts.
-		// for(unsigned int i = 0; i < numElements; i++){
-		for(unsigned int i = 0; i < 1; i++){
-			fprintf(stdout, "%u: count %u, quantity %u\n", i, h_count[i], h_quantity[i]);
+		unsigned int local_count = 0;
+		unsigned int local_quantity = 0;
+		for(unsigned int i = 0; i < numElements; i++){
+			local_count += h_count[i];
+			local_quantity += h_quantity[i];
 		}
+
+		total_count += local_count;
+		total_quantity += local_quantity;
 
 		if(verbose){
 			fprintf(stdout, "  > time %fms value ", milliseconds);
@@ -442,9 +451,10 @@ void test(
 	float milliAverage = milliTotal / numRepeats;
 
 
-	fprintf(stdout, "  Value: ");
-	fprintf(stdout, "  Total  : %fms\n", milliTotal);
-	fprintf(stdout, "  Average: %fms\n\n", milliAverage);
+	fprintf(stdout, "  Total Count    : %u\n", total_count);
+	fprintf(stdout, "  Total Quantity : %u\n", total_quantity);
+	fprintf(stdout, "  Total Time   : %fms\n", milliTotal);
+	fprintf(stdout, "  Average Time : %fms\n\n", milliAverage);
 	fflush(stdout);
 }
 
