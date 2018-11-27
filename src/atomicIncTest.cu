@@ -160,7 +160,20 @@ __device__ unsigned int atomicDecNoWrap(unsigned int * address, unsigned int val
 	} while (assumed != old);
 	return old;
 }
-
+// Atomically subtract Up to val from *address. Returns the total subtracted (or old value). If old value is more than val, then val was subtracted.
+__device__ unsigned int atomicSubNoWrap(unsigned int * address, unsigned int val){
+    unsigned int old = *address;
+    unsigned int assumed;
+    do {
+        assumed = old;
+        // The new value to be stored is:
+        // 1) assumed - val when assumed > = val
+        // 1) 0 when assumed < val
+        old = atomicCAS(address, assumed, ((assumed >= val) ? (assumed - val) : 0));
+    } while (assumed != old);
+    // Returns the old value. User code must then check for success.
+    return old;
+} 
 
 __global__ void atomicIncNoWrap_kernel(
 	unsigned int numIterations, 
@@ -218,7 +231,35 @@ __global__ void atomicDecNoWrap_kernel(
 		}
 	}
 }
+#define SUB_VAL 8
+__global__ void atomicSubNoWrap_kernel(
+	unsigned int numIterations, 
+	unsigned int numInputs, 
+	float * d_probabilities, 
+	unsigned int * d_quantity,
+	unsigned int * d_count
+){
+	unsigned int tid = threadIdx.x + (blockDim.x * blockIdx.x);
 
+	if (tid < numInputs){
+		if(tid == 0){
+			printf("d_quantity[%u] = %u\n", tid, d_quantity[tid]);
+		}		
+		for (int iteration = 0; iteration < numIterations; iteration++){
+
+			unsigned int old = atomicSubNoWrap(d_quantity + tid, SUB_VAL);
+
+			if(tid == 0){
+				printf("tid %u: iter %d, old %u, new %u\n", tid, iteration, old, d_quantity[tid] );
+			}
+
+			// If old is not the maximum value, we have claimed a resource?
+			if(old > 0){
+				d_count[tid]++;
+			}
+		}
+	}
+}
 
 
 void generateInputData(unsigned int numInputs, unsigned long long int seed, float * d_data){
@@ -404,7 +445,7 @@ void test(
 		}
 		else {
 			if(NO_WRAP){
-				kernel = atomicDecNoWrap_kernel;
+				kernel = atomicSubNoWrap_kernel;
 			} else {
 				kernel = atomicDec_kernel;
 			}
