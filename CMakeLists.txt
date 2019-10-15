@@ -153,7 +153,7 @@ add_executable(atomicIncTest src/atomicIncTest.cu)
 set_property(TARGET atomicIncTest PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 # Define link libraries for the target
-target_link_libraries(atomicIncTest  -lcurand)
+target_link_libraries(atomicIncTest curand)
 
 # Remove SMS value from the cache so cmake .. will use default rather than last run
 unset(SMS CACHE)
