@@ -131,11 +131,6 @@ set(CMAKE_CUDA_FLAGS_PROFILE "${CMAKE_CUDA_FLAGS_PROFILE} -DPROFILE -D_PROFILE")
 
 # All warnings for all modes.
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall")
-# Enable relocatable device code
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true")
-
-
-
 
 # Specify using C++11 standard
 if(NOT DEFINED CMAKE_CXX_STANDARD)
@@ -154,8 +149,8 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${atomicIncTest_SOURCE_DIR}/bin/${CMAKE_BUILD
 
 # Define which source files are required for the target executable
 add_executable(atomicIncTest src/atomicIncTest.cu)
+# Enable relocatable device code
 set_property(TARGET atomicIncTest PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
 
 # Define link libraries for the target
 target_link_libraries(atomicIncTest  -lcurand)
